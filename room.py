@@ -37,6 +37,8 @@ for object in bpy.data.scenes['Scene'].objects:
         
 for material in bpy.data.materials:       
     bpy.data.materials.remove(material) 
+    
+lamp.location = (-3, 0, 2.2)
 
 bpy.context.scene.render.engine = 'CYCLES'
 bpy.context.scene.render.image_settings.color_mode = 'RGBA'
