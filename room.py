@@ -1,5 +1,5 @@
 import bpy
-import math
+from math import radians as rad
 
 def chanel(chanel_id='RGBA'):
     chanels = {'RGBA', 'RGB', 'ALPHA'}
@@ -13,10 +13,20 @@ def chanel(chanel_id='RGBA'):
                 object.hide_render = object.active_material.use_transparency
             elif chanel_id == 'ALPHA':
                 object.hide_render = not object.active_material.use_transparency
-                
-def rad(deg):
-    return 2*math.pi*deg/360.
 
+def make_transparent(material, colour, transparency):                
+    material.use_nodes = True
+    material_nodes = material.node_tree.nodes
+    diff_n = material_nodes.get('Diffuse BSDF')
+    out_n = material_nodes.get('Material Output')
+    mix_n = material_nodes.new('ShaderNodeMixShader')
+    transparent_n = material_nodes.new("ShaderNodeBsdfTransparent")
+    diff_n.inputs[0].default_value = colour
+    mix_n.inputs[0].default_value = transparency
+    material.node_tree.links.new(out_n.inputs[0], mix_n.outputs[0])
+    material.node_tree.links.new(mix_n.inputs[1], diff_n.outputs[0])
+    material.node_tree.links.new(mix_n.inputs[2], transparent_n.outputs[0])
+        
 for object in bpy.data.scenes['Scene'].objects: 
     if object.name == 'Camera':
         camera = object
@@ -27,6 +37,11 @@ for object in bpy.data.scenes['Scene'].objects:
         
 for material in bpy.data.materials:       
     bpy.data.materials.remove(material) 
+
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.color_mode = 'RGBA'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.cycles.film_transparent = True
 
 bpy.ops.mesh.primitive_cube_add()
 blat = bpy.context.object
@@ -60,18 +75,8 @@ bpy.ops.mesh.primitive_cylinder_add(radius=.15, depth=.4, location=(-0.3, 0.3, 1
 vase = bpy.context.object
 glass = bpy.data.materials.new(name='glass')
 vase.data.materials.append( glass )
-vase.active_material.alpha = 0.1
 vase.active_material.use_transparency = True
-
-lamp.location = (-2, 0, 2.35)
-bpy.ops.mesh.primitive_ico_sphere_add(size=.2, location = (-2, 0, 2.3))
-light = bpy.context.object
-lamp_material = bpy.data.materials.new(name='lamp')
-light.data.materials.append( lamp_material )
-light.active_material.alpha = 0.1
-light.active_material.diffuse_color = (1, 1, 0.1)
-light.active_material.use_raytrace = False
-light.active_material.use_transparency = True
+make_transparent(glass, (1, 1, 0, 1), .8)
 
 bpy.ops.mesh.primitive_plane_add(radius=1, location=(-2, 0, 0) )
 floor = bpy.context.object
@@ -83,7 +88,7 @@ floor.active_material.diffuse_color = (0.2, 0.2, 0.2)
 bpy.ops.mesh.primitive_plane_add(radius=1, location=(-2, 2.5, 1.25) )
 wall_N = bpy.context.object
 wall_N.scale = (4, 1.25, 0)
-wall_N.rotation_euler = (math.pi/2, 0, 0)
+wall_N.rotation_euler = (rad(90), 0, 0)
 wall_SN_material = bpy.data.materials.new(name='wall_SN')
 wall_N.data.materials.append( wall_SN_material )
 wall_N.active_material.diffuse_color = (0.021089, 0.183035, 0.2)
@@ -92,13 +97,13 @@ wall_N.active_material.raytrace_mirror.reflect_factor = 0.1
 bpy.ops.mesh.primitive_plane_add(radius=1, location=(-2, -2.5, 1.25) )
 wall_N = bpy.context.object
 wall_N.scale = (4, 1.25, 0)
-wall_N.rotation_euler = (math.pi/2, 0, 0)
+wall_N.rotation_euler = (rad(90), 0, 0)
 wall_N.data.materials.append( wall_SN_material )
 
 bpy.ops.mesh.primitive_plane_add(radius=1, location=(-6, 0, 1.25) )
 wall_W = bpy.context.object
 wall_W.scale = (1.25, 2.5, 0)
-wall_W.rotation_euler = (0, math.pi/2, 0)
+wall_W.rotation_euler = (0, rad(90), 0)
 wall_WE_material = bpy.data.materials.new(name='wall_WE')
 wall_W.data.materials.append( wall_WE_material )
 wall_W.active_material.diffuse_color = (0.0746483, 0.2, 0.0418606)
@@ -106,7 +111,7 @@ wall_W.active_material.diffuse_color = (0.0746483, 0.2, 0.0418606)
 bpy.ops.mesh.primitive_plane_add(radius=1, location=(2, 0, 1.25) )
 wall_E = bpy.context.object
 wall_E.scale = (1.25, 2.5, 0)
-wall_E.rotation_euler = (0, math.pi/2, 0)
+wall_E.rotation_euler = (0, rad(90), 0)
 wall_E.data.materials.append( wall_WE_material )
 
 bpy.ops.mesh.primitive_plane_add(radius=1, location=(-2, 0, 2.5) )
@@ -119,14 +124,11 @@ ceiling.active_material.diffuse_color = (1, 1, 1)
 camera.location = (-5.98, -2, 2.15)
 camera.rotation_euler = ( rad(78.), 0, rad(-68.))
 
-bpy.context.scene.render.image_settings.color_mode = 'RGBA'
-bpy.context.scene.render.image_settings.file_format = 'PNG'
-bpy.context.scene.render.alpha_mode = 'TRANSPARENT'
 
 chanel('RGBA')
 bpy.data.scenes['Scene'].render.filepath = 'd:/blender/room/room_RGB.png'
 bpy.ops.render.render( write_still=True ) 
-                    
+                   
 chanel('RGB')
 bpy.data.scenes['Scene'].render.filepath = 'd:/blender/room/room1_RGB.png'
 bpy.ops.render.render( write_still=True ) 
@@ -135,6 +137,7 @@ chanel('ALPHA')
 bpy.data.scenes['Scene'].render.filepath = 'd:/blender/room/room1_Alpha.png'
 bpy.ops.render.render( write_still=True ) 
 
+chanel('ALPHA')
 camera.location = (-2.27, -1.14, 2.15)
 camera.rotation_euler = ( rad(60.), 0, rad(-68.))
 
